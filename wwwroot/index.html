@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心率监测WebSocket测试</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .card-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #3498db;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 60px;
+        }
+        #logs {
+            margin-top: 20px;
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+        .received {
+            border-left-color: #2ecc71;
+        }
+        .error {
+            border-left-color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>心率监测WebSocket测试</h1>
+
+        <div class="card">
+            <div class="card-header">连接控制</div>
+            <button id="connectBtn">连接WebSocket</button>
+            <button id="disconnectBtn" disabled>断开连接</button>
+            <span id="connectionStatus">未连接</span>
+        </div>
+
+        <div class="card">
+            <div class="card-header">发送心率数据</div>
+            <div>
+                <label for="heartRate">心率值:</label>
+                <input type="number" id="heartRate" value="75" min="0" max="250">
+            </div>
+            <div style="margin-top: 10px;">
+                <label for="deviceName">设备名称:</label>
+                <input type="text" id="deviceName" value="HeartMonitor-X1" style="width: 150px;">
+            </div>
+            <div style="margin-top: 10px;">
+                <label for="token">Token:</label>
+                <input type="text" id="token" value="1sZkzBKD3WpRT0eQ9Vk4" style="width: 200px;">
+            </div>
+            <button id="sendBtn" style="margin-top: 10px;" disabled>发送数据</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">日志</div>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const heartRateInput = document.getElementById('heartRate');
+        const deviceNameInput = document.getElementById('deviceName');
+        const tokenInput = document.getElementById('token');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const logsContainer = document.getElementById('logs');
+
+        function addLogEntry(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsContainer.appendChild(entry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        connectBtn.addEventListener('click', () => {
+            // 判断是HTTP还是HTTPS来决定WebSocket协议
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const wsUrl = `${protocol}//${host}/ws`;
+
+            try {
+                socket = new WebSocket(wsUrl);
+
+                socket.onopen = () => {
+                    addLogEntry('WebSocket连接已建立');
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    sendBtn.disabled = false;
+                    connectionStatus.textContent = '已连接';
+                };
+
+                socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        addLogEntry(`收到心率数据: ${JSON.stringify(data, null, 2)}`, 'received');
+                    } catch (e) {
+                        addLogEntry(`收到非JSON消息: ${event.data}`, 'error');
+                    }
+                };
+
+                socket.onclose = (event) => {
+                    addLogEntry(`WebSocket连接已关闭: 代码 ${event.code}, 原因: ${event.reason || '未指定'}`);
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    sendBtn.disabled = true;
+                    connectionStatus.textContent = '未连接';
+                };
+
+                socket.onerror = (error) => {
+                    addLogEntry(`WebSocket错误: ${error}`, 'error');
+                };
+            } catch (error) {
+                addLogEntry(`创建WebSocket连接时出错: ${error.message}`, 'error');
+            }
+        });
+
+        disconnectBtn.addEventListener('click', () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+                addLogEntry('正在关闭WebSocket连接...');
+            }
+        });
+
+        sendBtn.addEventListener('click', () => {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                addLogEntry('WebSocket未连接，无法发送数据', 'error');
+                return;
+            }
+
+            try {
+                const heartRate = parseInt(heartRateInput.value);
+                if (isNaN(heartRate) || heartRate < 0 || heartRate > 250) {
+                    addLogEntry('心率值无效，请输入0-250之间的数字', 'error');
+                    return;
+                }
+
+                const deviceName = deviceNameInput.value.trim();
+                if (!deviceName) {
+                    addLogEntry('设备名称不能为空', 'error');
+                    return;
+                }
+
+                const token = tokenInput.value.trim();
+                if (!token) {
+                    addLogEntry('Token不能为空', 'error');
+                    return;
+                }
+
+                const data = {
+                    heartRate: heartRate,
+                    timestamp: new Date(),
+                    deviceName: deviceName,
+                    token: token
+                };
+
+                socket.send(JSON.stringify(data));
+                addLogEntry(`已发送心率数据: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                addLogEntry(`发送数据时出错: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>
