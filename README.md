@@ -40,7 +40,8 @@ token是鉴权的唯一方式，请自行在程序主目录添加token.txt，并
 
 ## 使用方式
 
-1. 启动服务
-2. 通过WebSocket连接到 `ws://localhost:5000/ws` 或 `wss://localhost:5001/ws`
-3. 发送包含有效Token的心率数据JSON
-4. 接收来自其他客户端的心率数据广播
+1. 在程序主目录创建 `token.txt` 文件，并填入一个有效的Token。
+2. 启动服务。
+3. 通过WebSocket连接到 `ws://localhost:5000/ws` 或 `wss://localhost:5001/ws`
+4. 发送包含有效Token的心率数据JSON
+5. 接收来自其他客户端的心率数据广播

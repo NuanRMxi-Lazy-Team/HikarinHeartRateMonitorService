@@ -27,7 +27,7 @@ app.UseHttpsRedirection();
 app.UseWebSockets(new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromMinutes(2),
-    AllowedOrigins = { "*" } // 生产环境中请设置具体的允许来源
+    AllowedOrigins = { "*" } // 生产环境中建议设置具体的允许来源
 });
 
 // 使用自定义WebSocket中间件
